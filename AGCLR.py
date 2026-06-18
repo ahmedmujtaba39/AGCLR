@@ -36,11 +36,10 @@ class GatedConceptStream(nn.Module):
         nn.init.zeros_(self.write_gate.weight)
 
       
-        self.read_gate.bias.data.fill_(-0.28)   # σ(-0.28) ≈ 0.43
-        self.forget_gate.bias.data.fill_(-1.0)  # σ(-1.0)  ≈ 0.27
-        self.write_gate.bias.data.fill_(-1.5)   # σ(-1.5)  ≈ 0.18
+        self.read_gate.bias.data.fill_(-0.28)   
+        self.forget_gate.bias.data.fill_(-1.0)  
+        self.write_gate.bias.data.fill_(-1.5)   
 
-        # Monitoring — updated each forward, zero overhead
         self.last_r = 0.43
         self.last_f = 0.27
         self.last_w = 0.18
@@ -85,7 +84,6 @@ class AGCLR(nn.Module):
         self.start_latent_id = start_latent_id
         self.end_latent_id   = end_latent_id
 
-        # Embedding + d_model (GPT-2 and Llama compatible)
         if isinstance(self.base_causallm, GPT2LMHeadModel):
             self.embedding = self.base_causallm.transformer.get_input_embeddings()
             self.d_model   = self.base_causallm.transformer.wte.embedding_dim
@@ -97,7 +95,6 @@ class AGCLR(nn.Module):
                 else self.base_causallm.config.n_embd
             )
 
-        # ── Core innovation ───────────────────────────────────────────────
         self.gated_concept_stream = GatedConceptStream(self.d_model)
 
         total_params = sum(p.numel() for p in self.parameters())
@@ -131,7 +128,7 @@ class AGCLR(nn.Module):
 
         logits = []
 
-        # Locate all latent token positions
+       
         latent_indices = (input_ids == self.latent_token_id).nonzero()
         latent_lists   = [
             [idx[1].item() for idx in latent_indices if idx[0] == i]
@@ -139,7 +136,7 @@ class AGCLR(nn.Module):
         ]
         max_n_latents = max((len(l) for l in latent_lists), default=0)
 
-        # One concept stream per sequence — reset each forward call
+        
         concept_streams = torch.zeros(batch_size, self.d_model, device=device)
 
         inputs_embeds      = self.embedding(input_ids)
@@ -150,7 +147,6 @@ class AGCLR(nn.Module):
 
         kv_cache = None
 
-        # ── Multi-pass reasoning ──────────────────────────────────────────────
         for pass_idx in range(max_n_latents):
 
             if kv_cache is None:
@@ -193,14 +189,12 @@ class AGCLR(nn.Module):
             hidden_states = outputs.hidden_states[-1]
             kv_cache      = outputs.past_key_values
 
-            # Positions where we inject gated hidden states
             filling_indices = [
                 (i, latent_lists[i][pass_idx])
                 for i in range(batch_size)
                 if len(latent_lists[i]) > pass_idx
             ]
 
-            # Build tensor list — avoids in-place ops (Meta's method)
             tensor_list = [
                 [inputs_embeds[b, p, :]
                  for p in range(inputs_embeds.shape[1])]
