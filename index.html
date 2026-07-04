@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGCLR — Persistent Memory for Continuous Latent Reasoning (ICML 2026)</title>
+<meta name="description" content="Why Limit the Residual Stream to Layers and Not Tokens? Persistent Memory for Continuous Latent Reasoning — ICML 2026 paper by Mujtaba Farhan & Maheep Chaudhary.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFF6EC; --ink:#1A1A2E; --coral:#FF6B6B; --teal:#17C3B2; --yellow:#FFD93D;
+  --purple:#6C5CE7; --blue:#4D96FF; --pink:#FF9EAA; --card:#FFFFFF;
+  --shadow:6px 6px 0 var(--ink); --shadow-sm:4px 4px 0 var(--ink);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;line-height:1.65;overflow-x:hidden}
+::selection{background:var(--yellow)}
+h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif;line-height:1.15}
+code,.mono{font-family:'JetBrains Mono',monospace}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+section{padding:72px 0}
+
+/* progress bar */
+#progress{position:fixed;top:0;left:0;height:5px;background:linear-gradient(90deg,var(--coral),var(--yellow),var(--teal),var(--purple));width:0%;z-index:1000}
+
+/* nav */
+nav{position:sticky;top:0;background:rgba(255,246,236,.92);backdrop-filter:blur(8px);border-bottom:3px solid var(--ink);z-index:900}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:12px;padding-bottom:12px}
+nav .logo{font-family:'Space Grotesk';font-weight:700;font-size:1.15rem;display:flex;align-items:center;gap:8px}
+nav .logo .dot{width:14px;height:14px;border-radius:50%;background:var(--coral);border:2.5px solid var(--ink);display:inline-block}
+nav ul{display:flex;gap:6px;list-style:none;flex-wrap:wrap}
+nav a{color:var(--ink);text-decoration:none;font-weight:600;font-size:.85rem;padding:6px 12px;border-radius:99px;border:2px solid transparent;transition:.15s}
+nav a:hover{border-color:var(--ink);background:var(--yellow)}
+@media(max-width:760px){nav ul{display:none}}
+
+/* hero */
+.hero{padding:80px 0 64px;position:relative}
+.hero .conf{display:inline-flex;align-items:center;gap:8px;background:var(--yellow);border:3px solid var(--ink);border-radius:99px;padding:6px 16px;font-weight:700;font-size:.85rem;box-shadow:var(--shadow-sm);animation:float 4s ease-in-out infinite}
+.hero h1{font-size:clamp(1.9rem,4.6vw,3.3rem);margin:26px 0 10px;font-weight:700}
+.hero h1 .hl{background:linear-gradient(transparent 55%,var(--teal) 55%);padding:0 4px}
+.hero h1 .hl2{background:linear-gradient(transparent 55%,var(--pink) 55%);padding:0 4px}
+.hero .sub{font-size:1.15rem;max-width:720px;color:#44445c;margin-bottom:24px}
+.authors{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px}
+.author{background:var(--card);border:3px solid var(--ink);border-radius:14px;padding:8px 16px;font-weight:600;box-shadow:var(--shadow-sm);transition:.15s}
+.author:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 var(--ink)}
+.author small{display:block;font-weight:500;color:#66667e;font-size:.75rem}
+.btns{display:flex;gap:14px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);font-weight:700;font-family:'Space Grotesk';border:3px solid var(--ink);border-radius:14px;padding:12px 22px;box-shadow:var(--shadow);transition:.15s;background:var(--card)}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:9px 9px 0 var(--ink)}
+.btn:active{transform:translate(4px,4px);box-shadow:1px 1px 0 var(--ink)}
+.btn.coral{background:var(--coral);color:#fff}
+.btn.teal{background:var(--teal);color:#fff}
+.btn.purple{background:var(--purple);color:#fff}
+
+/* floating doodles */
+.doodle{position:absolute;border:3px solid var(--ink);pointer-events:none;opacity:.9}
+.d1{width:56px;height:56px;border-radius:50%;background:var(--pink);top:60px;right:8%;animation:float 5s ease-in-out infinite}
+.d2{width:40px;height:40px;border-radius:12px;background:var(--teal);top:200px;right:16%;transform:rotate(15deg);animation:float 6s ease-in-out infinite reverse}
+.d3{width:30px;height:30px;border-radius:50%;background:var(--yellow);bottom:60px;right:6%;animation:float 4.5s ease-in-out infinite}
+@media(max-width:900px){.doodle{display:none}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+
+/* section headers */
+.kicker{display:inline-block;font-family:'Space Grotesk';font-weight:700;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;border:2.5px solid var(--ink);border-radius:99px;padding:4px 14px;margin-bottom:14px;box-shadow:3px 3px 0 var(--ink)}
+.k-coral{background:var(--coral);color:#fff}.k-teal{background:var(--teal);color:#fff}
+.k-yellow{background:var(--yellow)}.k-purple{background:var(--purple);color:#fff}.k-blue{background:var(--blue);color:#fff}.k-pink{background:var(--pink)}
+h2{font-size:clamp(1.6rem,3.4vw,2.4rem);margin-bottom:14px}
+.lead{font-size:1.08rem;color:#44445c;max-width:760px}
+
+/* cards */
+.card{background:var(--card);border:3px solid var(--ink);border-radius:20px;box-shadow:var(--shadow);padding:28px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:34px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:34px}
+@media(max-width:820px){.grid3,.grid2{grid-template-columns:1fr}}
+.tldr .card{transition:.15s}
+.tldr .card:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 var(--ink)}
+.tldr .emoji{font-size:2rem;display:inline-block;background:var(--bg);border:3px solid var(--ink);border-radius:14px;width:60px;height:60px;line-height:54px;text-align:center;margin-bottom:14px}
+.tldr h3{margin-bottom:8px;font-size:1.15rem}
+.tldr p{font-size:.95rem;color:#44445c}
+
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .6s,transform .6s}
+.reveal.on{opacity:1;transform:none}
+
+/* ===== bottleneck demo ===== */
+.demo{margin-top:36px}
+.demo-controls{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:26px}
+.demo-controls label{font-family:'Space Grotesk';font-weight:700}
+input[type=range]{-webkit-appearance:none;width:260px;height:14px;background:var(--card);border:3px solid var(--ink);border-radius:99px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--coral);border:3px solid var(--ink);cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--coral);border:3px solid var(--ink);cursor:pointer}
+.pass-badge{background:var(--ink);color:var(--yellow);font-family:'JetBrains Mono';font-weight:600;border-radius:10px;padding:6px 14px;font-size:1rem;min-width:96px;text-align:center}
+.bcols{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:820px){.bcols{grid-template-columns:1fr}}
+.bcol{border:3px solid var(--ink);border-radius:20px;padding:22px;background:var(--card);box-shadow:var(--shadow)}
+.bcol h4{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:1.1rem}
+.tag{font-size:.7rem;font-weight:700;letter-spacing:.06em;padding:3px 10px;border-radius:99px;border:2px solid var(--ink)}
+.tag.bad{background:var(--pink)}.tag.good{background:var(--teal);color:#fff}
+.bcol .simline{font-size:.85rem;color:#66667e;margin-bottom:16px}
+.simval{font-family:'JetBrains Mono';font-weight:600;color:var(--ink)}
+.facts{display:flex;flex-wrap:wrap;gap:10px;min-height:88px}
+.fact{border:2.5px solid var(--ink);border-radius:99px;padding:6px 14px;font-weight:600;font-size:.88rem;transition:opacity .5s,transform .5s,filter .5s;background:var(--yellow)}
+.fact.f2{background:var(--pink)}.fact.f3{background:#B8F1EC}.fact.f4{background:#E4DEFF}
+.fact.gone{opacity:.13;filter:grayscale(1);transform:scale(.92)}
+.membar{height:22px;border:3px solid var(--ink);border-radius:99px;overflow:hidden;margin-top:18px;background:var(--bg)}
+.membar>div{height:100%;transition:width .5s;border-right:3px solid var(--ink)}
+.membar .mv{background:repeating-linear-gradient(45deg,var(--coral),var(--coral) 8px,#ff8f8f 8px,#ff8f8f 16px)}
+.membar .ma{background:repeating-linear-gradient(45deg,var(--teal),var(--teal) 8px,#3fd6c7 8px,#3fd6c7 16px)}
+.membar-label{font-size:.78rem;font-weight:600;color:#66667e;margin-top:6px}
+.stream-vault{margin-top:18px;border:3px dashed var(--ink);border-radius:14px;padding:10px 14px;background:#E9FBF9;font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:8px}
+.verdict{margin-top:24px;text-align:center;font-family:'Space Grotesk';font-weight:700;font-size:1.05rem;background:var(--card);border:3px solid var(--ink);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm)}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<nav>
+  <div class="wrap">
+    <div class="logo"><span class="dot"></span>AGCLR</div>
+    <ul>
+      <li><a href="#problem">Problem</a></li>
+      <li><a href="#method">Method</a></li>
+      <li><a href="#playground">Playground</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#inside">Inside the Stream</a></li>
+      <li><a href="#ablations">Ablations</a></li>
+      <li><a href="#cite">Cite</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="doodle d1"></div><div class="doodle d2"></div><div class="doodle d3"></div>
+  <div class="wrap">
+    <span class="conf">🏆 ICML 2026 · Seoul, South Korea</span>
+    <h1>Why Limit the Residual Stream to <span class="hl">Layers</span> and Not <span class="hl2">Tokens</span>?</h1>
+    <p class="sub">Persistent Memory for Continuous Latent Reasoning. We find that latent-reasoning LLMs <b>forget what they just figured out</b> — and fix it with three tiny learned gates and a memory stream that costs just <b>1.41% extra parameters</b>.</p>
+    <div class="authors">
+      <div class="author">Mujtaba Farhan<small>Algoverse AI Research</small></div>
+      <div class="author">Maheep Chaudhary<small>Independent</small></div>
+    </div>
+    <div class="btns">
+      <a class="btn coral" href="https://arxiv.org/pdf/2606.07720" target="_blank">📄 Paper (arXiv)</a>
+      <a class="btn teal" href="https://anonymous.4open.science/r/JJJJ/README.md" target="_blank">💻 Code</a>
+      <a class="btn purple" href="#cite">📚 BibTeX</a>
+    </div>
+  </div>
+</header>
+
+<section class="tldr" id="tldr">
+  <div class="wrap">
+    <span class="kicker k-yellow">TL;DR</span>
+    <h2>The paper in three bites</h2>
+    <div class="grid3">
+      <div class="card reveal"><span class="emoji">🕳️</span><h3>The Concept Bottleneck</h3><p>In latent reasoning (CoCoNuT), each reasoning pass <b>overwrites</b> the previous hidden state. Facts computed early are lost by the time the answer is generated — 87% of pass-1 information is gone by pass 6.</p></div>
+      <div class="card reveal"><span class="emoji">🚪</span><h3>Three Learned Gates</h3><p>AGCLR adds a persistent <b>concept stream</b> — a residual memory across passes — controlled by <b>read</b>, <b>forget</b>, and <b>write</b> gates. Like an LSTM, but gating memory <i>across reasoning passes</i>, not timesteps.</p></div>
+      <div class="card reveal"><span class="emoji">📈</span><h3>Compounding Gains</h3><p>+2.6% on GSM8K, +3.6% EM on HotpotQA, +4.0% on ProsQA over vanilla CoCoNuT — and the gap <b>grows with reasoning depth</b>, exactly where the bottleneck bites hardest.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="problem">
+  <div class="wrap">
+    <span class="kicker k-coral">The Problem</span>
+    <h2>Watch a model forget 🧠💨</h2>
+    <p class="lead">Latent reasoning feeds the model's hidden state back as the next input — powerful, but each pass <b>overwrites</b> the last. Drag the slider to simulate reasoning passes and watch what happens to the facts. Values are real cosine similarities from the paper (Fig. 3).</p>
+    <div class="demo reveal">
+      <div class="demo-controls">
+        <label for="passSlider">Reasoning pass</label>
+        <input type="range" id="passSlider" min="1" max="6" value="1" step="1">
+        <span class="pass-badge" id="passBadge">Pass 1 / 6</span>
+      </div>
+      <div class="bcols">
+        <div class="bcol">
+          <h4>Vanilla CoCoNuT <span class="tag bad">no memory</span></h4>
+          <div class="simline">Similarity to pass-1 state: <span class="simval" id="simV">1.000</span></div>
+          <div class="facts" id="factsV">
+            <span class="fact">📍 Manor Township → Pennsylvania</span>
+            <span class="fact f2">👤 Pennsylvania → William Penn</span>
+            <span class="fact f3">🗓️ founded in 1655</span>
+            <span class="fact f4">❓ question asks "who founded"</span>
+          </div>
+          <div class="membar"><div class="mv" id="barV" style="width:100%"></div></div>
+          <div class="membar-label">Information retained</div>
+        </div>
+        <div class="bcol">
+          <h4>AGCLR <span class="tag good">gated memory</span></h4>
+          <div class="simline">Similarity to pass-1 state: <span class="simval" id="simA">1.000</span></div>
+          <div class="facts" id="factsA">
+            <span class="fact">📍 Manor Township → Pennsylvania</span>
+            <span class="fact f2">👤 Pennsylvania → William Penn</span>
+            <span class="fact f3">🗓️ founded in 1655</span>
+            <span class="fact f4">❓ question asks "who founded"</span>
+          </div>
+          <div class="membar"><div class="ma" id="barA" style="width:100%"></div></div>
+          <div class="membar-label">Information retained</div>
+          <div class="stream-vault">🔒 Concept stream holds facts written in early passes — read back when needed</div>
+        </div>
+      </div>
+      <div class="verdict" id="verdict">Both models start with everything they need…</div>
+    </div>
+  </div>
+</section>
+
+<section id="method" style="background:#FDEFF4;border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)">
+  <div class="wrap">
+    <span class="kicker k-purple">The Method</span>
+    <h2>AGCLR: a memory stream with three doors 🚪🚪🚪</h2>
+    <p class="lead">At every latent token position, a persistent vector <b>c<sub>t</sub></b> (the concept stream) rides alongside the hidden state <b>h<sub>t</sub></b>. Three sigmoid gates decide what gets remembered, retrieved, and pruned. <b>Click a gate</b> to learn what it does.</p>
+
+    <div class="arch reveal">
+      <svg viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg" id="archSvg" role="img" aria-label="AGCLR architecture diagram">
+        <defs>
+          <marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1A1A2E"/></marker>
+        </defs>
+        <!-- concept stream track -->
+        <rect x="40" y="40" width="820" height="70" rx="18" fill="#E9FBF9" stroke="#1A1A2E" stroke-width="3"/>
+        <text x="60" y="83" font-family="Space Grotesk" font-weight="700" font-size="20" fill="#1A1A2E">Concept stream  c₍ₜ₋₁₎ → cₜ</text>
+        <text x="820" y="83" font-size="24" text-anchor="end">🔒</text>
+        <!-- hidden state track -->
+        <rect x="40" y="310" width="820" height="70" rx="18" fill="#FFF3D6" stroke="#1A1A2E" stroke-width="3"/>
+        <text x="60" y="353" font-family="Space Grotesk" font-weight="700" font-size="20" fill="#1A1A2E">Hidden state  hₜ → h′ₜ  (fed back as next input)</text>
+        <text x="820" y="353" font-size="24" text-anchor="end">🧠</text>
+        <!-- gates -->
+        <g class="gate" id="gRead" style="cursor:pointer">
+          <line x1="230" y1="110" x2="230" y2="310" stroke="#1A1A2E" stroke-width="3" marker-end="url(#arr)"/>
+          <circle cx="230" cy="210" r="46" fill="#4D96FF" stroke="#1A1A2E" stroke-width="3"/>
+          <text x="230" y="203" text-anchor="middle" font-family="Space Grotesk" font-weight="700" font-size="17" fill="#fff">READ</text>
+          <text x="230" y="226" text-anchor="middle" font-family="JetBrains Mono" font-size="15" fill="#fff">rₜ</text>
+        </g>
+        <g class="gate" id="gForget" style="cursor:pointer">
+          <circle cx="450" cy="210" r="46" fill="#FF6B6B" stroke="#1A1A2E" stroke-width="3"/>
+          <text x="450" y="203" text-anchor="middle" font-family="Space Grotesk" font-weight="700" font-size="15" fill="#fff">FORGET</text>
+          <text x="450" y="226" text-anchor="middle" font-family="JetBrains Mono" font-size="15" fill="#fff">fₜ</text>
+          <line x1="450" y1="310" x2="450" y2="256" stroke="#1A1A2E" stroke-width="3" marker-end="url(#arr)"/>
+        </g>
+        <g class="gate" id="gWrite" style="cursor:pointer">
+          <line x1="670" y1="310" x2="670" y2="110" stroke="#1A1A2E" stroke-width="3" marker-end="url(#arr)"/>
+          <circle cx="670" cy="210" r="46" fill="#17C3B2" stroke="#1A1A2E" stroke-width="3"/>
+          <text x="670" y="203" text-anchor="middle" font-family="Space Grotesk" font-weight="700" font-size="16" fill="#fff">WRITE</text>
+          <text x="670" y="226" text-anchor="middle" font-family="JetBrains Mono" font-size="15" fill="#fff">wₜ</text>
+        </g>
+      </svg>
+      <div class="gate-info card" id="gateInfo">
+        <h3 id="giTitle">👆 Click a gate</h3>
+        <p id="giBody">Each gate is a learned sigmoid over the layer-normed hidden state — e.g. r<sub>t</sub> = σ(W<sub>r</sub> ĥ<sub>t</sub>). Together they cost only <b>1.41% extra parameters</b> on GPT-2.</p>
+      </div>
+    </div>
+
+    <div class="eqs card reveal">
+      <h3 style="margin-bottom:14px">The full update, four lines 🧮</h3>
+      <div class="eq"><span class="eqn">1</span><code>ĥₜ = LayerNorm(hₜ)</code><span class="eqd">normalize the current thought</span></div>
+      <div class="eq"><span class="eqn">2</span><code>rₜ, fₜ, wₜ = σ(W·ĥₜ)</code><span class="eqd">three gates, each ∈ [0,1]ᵈ</span></div>
+      <div class="eq"><span class="eqn">3</span><code>h′ₜ = (1−fₜ)⊙hₜ + rₜ⊙cₜ₋₁</code><span class="eqd">prune noise, pull in memory</span></div>
+      <div class="eq"><span class="eqn">4</span><code>cₜ = LayerNorm(cₜ₋₁ + wₜ⊙h′ₜ)</code><span class="eqd">commit to the stream</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="playground">
+  <div class="wrap">
+    <span class="kicker k-blue">Playground</span>
+    <h2>Drive the gates yourself 🎛️</h2>
+    <p class="lead">Slide the three gates and watch how the next hidden state h′<sub>t</sub> gets mixed, and how fast the concept stream fills up. The presets are the paper's actual learned initializations (Appendix A.3).</p>
+    <div class="pg card reveal">
+      <div class="pg-grid">
+        <div class="pg-sliders">
+          <div class="pg-slider"><label>🔵 Read gate r <span class="mono" id="rVal">0.43</span></label><input type="range" id="rGate" min="0" max="1" step="0.01" value="0.43"></div>
+          <div class="pg-slider"><label>🔴 Forget gate f <span class="mono" id="fVal">0.27</span></label><input type="range" id="fGate" min="0" max="1" step="0.01" value="0.27"></div>
+          <div class="pg-slider"><label>🟢 Write gate w <span class="mono" id="wVal">0.18</span></label><input type="range" id="wGate" min="0" max="1" step="0.01" value="0.18"></div>
+          <div class="pg-presets">
+            <button class="chip" data-r="0.43" data-f="0.27" data-w="0.18">GSM8K / HotpotQA init</button>
+            <button class="chip" data-r="0.43" data-f="0.18" data-w="0.43">ProsQA init</button>
+            <button class="chip" data-r="0" data-f="0" data-w="0">No gates (vanilla)</button>
+            <button class="chip" data-r="1" data-f="1" data-w="1">Everything open</button>
+          </div>
+        </div>
+        <div class="pg-viz">
+          <div class="pg-label">Next hidden state h′ₜ is made of:</div>
+          <div class="mixbar"><div class="mix-h" id="mixH"></div><div class="mix-c" id="mixC"></div></div>
+          <div class="mix-legend"><span><i class="sw sw-h"></i>current thought (1−f)·h</span><span><i class="sw sw-c"></i>retrieved memory r·c</span></div>
+          <div class="pg-label" style="margin-top:22px">Concept stream fill over 6 passes:</div>
+          <div class="streamrow" id="streamRow"></div>
+          <p class="pg-note" id="pgNote"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+.arch{margin-top:36px}
+#archSvg{width:100%;height:auto;background:var(--card);border:3px solid var(--ink);border-radius:20px;box-shadow:var(--shadow)}
+.gate circle{transition:.15s}
+.gate:hover circle{filter:brightness(1.12);stroke-width:5}
+.gate.active circle{stroke-width:6;filter:drop-shadow(0 0 6px rgba(26,26,46,.4))}
+.gate-info{margin-top:22px;min-height:110px}
+.eqs{margin-top:26px}
+.eq{display:flex;align-items:center;gap:16px;padding:10px 0;border-bottom:2px dashed #d8d3e8;flex-wrap:wrap}
+.eq:last-child{border-bottom:none}
+.eqn{width:30px;height:30px;border-radius:50%;background:var(--yellow);border:2.5px solid var(--ink);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-family:'Space Grotesk';flex-shrink:0}
+.eq code{font-size:1rem;font-weight:600;background:var(--bg);border:2px solid var(--ink);border-radius:10px;padding:5px 12px}
+.eqd{color:#66667e;font-size:.9rem}
+/* playground */
+.pg{margin-top:36px}
+.pg-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:34px}
+@media(max-width:820px){.pg-grid{grid-template-columns:1fr}}
+.pg-slider{margin-bottom:20px}
+.pg-slider label{display:flex;justify-content:space-between;font-weight:700;font-family:'Space Grotesk';margin-bottom:8px}
+.pg-slider input{width:100%}
+.pg-presets{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.chip{border:2.5px solid var(--ink);background:var(--bg);border-radius:99px;padding:7px 14px;font-weight:600;font-size:.8rem;cursor:pointer;font-family:'Inter';box-shadow:2px 2px 0 var(--ink);transition:.12s}
+.chip:hover{background:var(--yellow);transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+.pg-label{font-weight:700;font-family:'Space Grotesk';margin-bottom:10px}
+.mixbar{display:flex;height:34px;border:3px solid var(--ink);border-radius:99px;overflow:hidden;background:var(--bg)}
+.mix-h{background:var(--yellow);transition:width .25s;border-right:3px solid var(--ink)}
+.mix-c{background:var(--teal);transition:width .25s}
+.mix-legend{display:flex;gap:20px;font-size:.82rem;font-weight:600;color:#44445c;margin-top:8px;flex-wrap:wrap}
+.sw{display:inline-block;width:14px;height:14px;border:2px solid var(--ink);border-radius:4px;margin-right:6px;vertical-align:-2px}
+.sw-h{background:var(--yellow)}.sw-c{background:var(--teal)}
+.streamrow{display:flex;gap:8px;align-items:flex-end;height:110px}
+.streamrow .scol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}
+.streamrow .scell{width:100%;border:2.5px solid var(--ink);border-radius:8px;background:var(--teal);transition:height .3s;min-height:4px}
+.streamrow .slab{font-size:.68rem;font-weight:700;color:#66667e;font-family:'JetBrains Mono'}
+.pg-note{margin-top:16px;font-size:.9rem;color:#44445c;background:var(--bg);border:2px dashed var(--ink);border-radius:12px;padding:10px 14px;min-height:64px}
+</style>
+
+<section id="results" style="background:#EDF4FF;border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)">
+  <div class="wrap">
+    <span class="kicker k-teal">Results</span>
+    <h2>Numbers that compound 📊</h2>
+    <p class="lead">All methods use the same GPT-2 (117M) base. Pick a dataset — bars animate to the paper's Table 1. Hover a bar for details.</p>
+
+    <div class="tabs reveal" id="dsTabs">
+      <button class="tab active" data-ds="gsm8k">🔢 GSM8K <small>math, accuracy</small></button>
+      <button class="tab" data-ds="hotpot">🔗 HotpotQA <small>multi-hop QA, EM</small></button>
+      <button class="tab" data-ds="prosqa">🗺️ ProsQA <small>planning, accuracy</small></button>
+    </div>
+    <div class="card chart-card reveal">
+      <div class="chart" id="chart"></div>
+      <p class="chart-note" id="chartNote"></p>
+    </div>
+
+    <div class="grid2">
+      <div class="card reveal">
+        <h3 style="margin-bottom:8px">🧠 Memory retention across passes</h3>
+        <p style="font-size:.92rem;color:#44445c;margin-bottom:16px">Cosine similarity of each pass's hidden state to pass 1 (100 validation samples, epoch 15). Vanilla decays monotonically to <b>0.126</b> (≈87% information loss); AGCLR stabilizes at <b>0.216</b> — retaining 71% more information at final generation.</p>
+        <svg viewBox="0 0 440 260" id="lineChart" style="width:100%;height:auto">
+          <line x1="46" y1="14" x2="46" y2="216" stroke="#1A1A2E" stroke-width="2.5"/>
+          <line x1="46" y1="216" x2="424" y2="216" stroke="#1A1A2E" stroke-width="2.5"/>
+          <g font-family="JetBrains Mono" font-size="11" fill="#66667e">
+            <text x="38" y="20" text-anchor="end">1.0</text>
+            <text x="38" y="120" text-anchor="end">0.5</text>
+            <text x="38" y="220" text-anchor="end">0.0</text>
+          </g>
+          <g font-family="JetBrains Mono" font-size="11" fill="#66667e" text-anchor="middle">
+            <text x="60" y="236">P1</text><text x="132" y="236">P2</text><text x="204" y="236">P3</text><text x="276" y="236">P4</text><text x="348" y="236">P5</text><text x="420" y="236">P6</text>
+          </g>
+          <polyline id="lnV" points="60,16 132,106 204,146 276,168 348,182 420,190.8" fill="none" stroke="#FF6B6B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline id="lnA" points="60,16 132,140 204,168 276,171 348,172 420,172.8" fill="none" stroke="#17C3B2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="420" cy="190.8" r="6" fill="#FF6B6B" stroke="#1A1A2E" stroke-width="2.5"/>
+          <circle cx="420" cy="172.8" r="6" fill="#17C3B2" stroke="#1A1A2E" stroke-width="2.5"/>
+          <text x="414" y="196" text-anchor="end" font-family="JetBrains Mono" font-size="12" font-weight="600" fill="#FF6B6B">0.126</text>
+          <text x="414" y="166" text-anchor="end" font-family="JetBrains Mono" font-size="12" font-weight="600" fill="#0e9d8e">0.216</text>
+          <g font-family="Space Grotesk" font-size="13" font-weight="700">
+            <rect x="60" y="30" width="14" height="14" rx="4" fill="#FF6B6B" stroke="#1A1A2E" stroke-width="2"/><text x="82" y="42">Vanilla CoCoNuT</text>
+            <rect x="60" y="52" width="14" height="14" rx="4" fill="#17C3B2" stroke="#1A1A2E" stroke-width="2"/><text x="82" y="64">AGCLR (ours)</text>
+          </g>
+        </svg>
+      </div>
+      <div class="card reveal">
+        <h3 style="margin-bottom:8px">📉 Depth helps us, hurts them</h3>
+        <p style="font-size:.92rem;color:#44445c;margin-bottom:16px">On ProsQA, vanilla CoCoNuT peaks at 95% at curriculum stage 5, then <b>degrades to 92%</b> at stage 6 (fully latent). AGCLR keeps climbing to <b>96%</b> — the concept bottleneck, resolved.</p>
+        <div class="depth-race">
+          <div class="dr-row"><span class="dr-name">Vanilla @ stage 5</span><div class="dr-track"><div class="dr-bar dr-red" data-w="95">95%</div></div></div>
+          <div class="dr-row"><span class="dr-name">Vanilla @ stage 6</span><div class="dr-track"><div class="dr-bar dr-red" data-w="92">92% 😰</div></div></div>
+          <div class="dr-row"><span class="dr-name">AGCLR @ stage 6</span><div class="dr-track"><div class="dr-bar dr-teal" data-w="96">96% 🎉</div></div></div>
+        </div>
+        <p style="font-size:.9rem;color:#44445c;margin-top:18px">The pattern is consistent: AGCLR and vanilla perform similarly at early stages, then the gap <b>compounds as more reasoning goes latent</b> — exactly where a persistent memory should matter.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="inside">
+  <div class="wrap">
+    <span class="kicker k-pink">Interpretability</span>
+    <h2>What actually gets written? 🔍</h2>
+    <p class="lead">Probing the concept stream against the vocabulary (logit-lens style) shows it stores <b>answer-relevant entities</b> at 0.6–0.8 cosine similarity. Three cases where AGCLR wins and vanilla hallucinates — <b>click a card to flip it</b>.</p>
+    <div class="grid3">
+      <div class="flip reveal" tabindex="0"><div class="flip-inner">
+        <div class="flip-face flip-front">
+          <div class="q">❓ Who founded Manor Township, Pennsylvania?</div>
+          <div class="chips"><span class="sim" style="--v:.806">Penn ·806</span><span class="sim" style="--v:.681">William ·681</span><span class="sim" style="--v:.614">Pennsylvania ·614</span></div>
+          <div class="hint">tap to see the answers ↻</div>
+        </div>
+        <div class="flip-face flip-back">
+          <div class="ans good">✅ AGCLR: <b>William Penn</b></div>
+          <div class="ans bad">❌ Vanilla: <b>Henry David Thoreau</b></div>
+          <p>The stream keeps the Pennsylvania→William Penn binding; vanilla loses it across passes and hallucinates a plausible historical figure.</p>
+        </div>
+      </div></div>
+      <div class="flip reveal" tabindex="0"><div class="flip-inner">
+        <div class="flip-face flip-front">
+          <div class="q">❓ When did Oakland Assembly close?</div>
+          <div class="chips"><span class="sim" style="--v:.760">War ·760</span><span class="sim" style="--v:.684">World ·684</span><span class="sim" style="--v:.713">Assembly ·713</span></div>
+          <div class="hint">tap to see the answers ↻</div>
+        </div>
+        <div class="flip-face flip-back">
+          <div class="ans good">✅ AGCLR: <b>World War I</b></div>
+          <div class="ans bad">❌ Vanilla: <b>World War II</b></div>
+          <p>Preserved temporal context stops the drift toward the statistically more common "World War II".</p>
+        </div>
+      </div></div>
+      <div class="flip reveal" tabindex="0"><div class="flip-inner">
+        <div class="flip-face flip-front">
+          <div class="q">❓ What country is WCDL radio station in?</div>
+          <div class="chips"><span class="sim" style="--v:.507">Federal ·507</span><span class="sim" style="--v:.495">country ·495</span><span class="sim" style="--v:.479">Pennsylvania ·479</span></div>
+          <div class="hint">tap to see the answers ↻</div>
+        </div>
+        <div class="flip-face flip-back">
+          <div class="ans good">✅ AGCLR: <b>United States</b></div>
+          <div class="ans bad">❌ Vanilla: <b>Pennsylvania</b></div>
+          <p>Both the base entity and abstraction markers survive, enabling the second hop from state → country. Vanilla stops at hop one.</p>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<section id="ablations" style="background:#FFF3D6;border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)">
+  <div class="wrap">
+    <span class="kicker k-coral">Ablations</span>
+    <h2>Memory, not parameters 🧪</h2>
+    <p class="lead">Is it just extra weights? No. Freezing the write gate after pass 2 costs only <b>−0.8% EM</b> — the stream is <b>persistent storage, not a scratchpad</b>: write early, read often. And every gate earns its keep (HotpotQA EM).</p>
+    <div class="grid2">
+      <div class="card reveal">
+        <h3 style="margin-bottom:16px">Write-gate ablation</h3>
+        <div class="abl" id="ablChart">
+          <div class="abl-row"><span>Vanilla CoCoNuT</span><div class="abl-track"><div class="abl-bar" style="--c:var(--pink)" data-w="10.4">10.4</div></div></div>
+          <div class="abl-row"><span>AGCLR w/o write gate</span><div class="abl-track"><div class="abl-bar" style="--c:var(--coral)" data-w="8.8">8.8</div></div></div>
+          <div class="abl-row"><span>Write frozen after pass 2</span><div class="abl-track"><div class="abl-bar" style="--c:var(--blue)" data-w="13.2">13.2</div></div></div>
+          <div class="abl-row"><span><b>Full AGCLR</b></span><div class="abl-track"><div class="abl-bar" style="--c:var(--teal)" data-w="14.0">14.0</div></div></div>
+        </div>
+      </div>
+      <div class="card reveal">
+        <h3 style="margin-bottom:16px">Remove one gate at a time</h3>
+        <div class="abl">
+          <div class="abl-row"><span><b>Full AGCLR</b></span><div class="abl-track"><div class="abl-bar" style="--c:var(--teal)" data-w="14.0">14.0</div></div></div>
+          <div class="abl-row"><span>w/o read gate</span><div class="abl-track"><div class="abl-bar" style="--c:var(--blue)" data-w="9.4">9.4</div></div></div>
+          <div class="abl-row"><span>w/o write gate</span><div class="abl-track"><div class="abl-bar" style="--c:var(--coral)" data-w="8.8">8.8</div></div></div>
+          <div class="abl-row"><span>w/o forget gate</span><div class="abl-track"><div class="abl-bar" style="--c:var(--purple)" data-w="8.4">8.4</div></div></div>
+        </div>
+        <p style="font-size:.88rem;color:#44445c;margin-top:14px">Biggest drop from removing <b>forget</b> (−5.6): without pruning, the stream gets polluted with noise. All three gates are indispensable.</p>
+      </div>
+    </div>
+    <div class="card reveal" style="margin-top:22px">
+      <h3 style="margin-bottom:10px">⚖️ Honest limitations</h3>
+      <p style="font-size:.95rem;color:#44445c">Single-seed runs on GPT-2 124M across three benchmarks; scaling to 1B+ models, multi-seed variance estimates, and broader benchmarks (MuSiQue, 2WikiMultihopQA, StrategyQA) are future work. The architecture itself is parameter-agnostic. Total training: ~8 hours on a single A10 GPU.</p>
+    </div>
+  </div>
+</section>
+
+<section id="cite">
+  <div class="wrap">
+    <span class="kicker k-purple">Citation</span>
+    <h2>Cite this work 📚</h2>
+    <div class="card bib reveal">
+      <button class="btn teal" id="copyBib" style="position:absolute;top:18px;right:18px;padding:8px 16px;font-size:.85rem">📋 Copy</button>
+<pre id="bibText">@inproceedings{farhan2026agclr,
+  title     = {Why Limit the Residual Stream to Layers and Not Tokens?
+               Persistent Memory for Continuous Latent Reasoning},
+  author    = {Farhan, Mujtaba and Chaudhary, Maheep},
+  booktitle = {Proceedings of the 43rd International Conference
+               on Machine Learning (ICML)},
+  year      = {2026},
+  publisher = {PMLR}
+}</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>🧠 Built for <b>AGCLR</b> — ICML 2026 · <a href="https://arxiv.org/pdf/2606.07720" target="_blank">arXiv:2606.07720</a> · <a href="https://anonymous.4open.science/r/JJJJ/README.md" target="_blank">Code</a></p>
+    <p style="margin-top:6px;font-weight:600">By <b>Mujtaba Farhan</b> (Algoverse AI Research) &amp; Maheep Chaudhary (Independent)</p>
+    <p style="font-size:.8rem;color:#8888a0;margin-top:6px">Why limit the residual stream to layers, when tokens can remember too?</p>
+  </div>
+</footer>
+
+<style>
+/* tabs + chart */
+.tabs{display:flex;gap:12px;margin:34px 0 22px;flex-wrap:wrap}
+.tab{border:3px solid var(--ink);background:var(--card);border-radius:14px;padding:10px 18px;font-family:'Space Grotesk';font-weight:700;font-size:.95rem;cursor:pointer;box-shadow:var(--shadow-sm);transition:.12s;display:flex;flex-direction:column;align-items:flex-start}
+.tab small{font-weight:500;font-size:.7rem;color:#66667e;font-family:'Inter'}
+.tab:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink)}
+.tab.active{background:var(--yellow)}
+.chart-card{padding:34px 28px 20px}
+.chart{display:flex;align-items:flex-end;gap:4%;height:300px;padding:0 2%}
+.cbar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
+.cbar .bar{width:100%;border:3px solid var(--ink);border-radius:12px 12px 0 0;transition:height .7s cubic-bezier(.2,.8,.3,1.1);position:relative;min-height:4px}
+.cbar .bar:hover{filter:brightness(1.08)}
+.cbar .val{font-family:'JetBrains Mono';font-weight:600;font-size:.95rem;margin-bottom:6px}
+.cbar .name{font-size:.72rem;font-weight:700;text-align:center;margin-top:10px;line-height:1.25;min-height:32px}
+.cbar.ours .bar{background:var(--teal)!important}
+.cbar.ours .name::after{content:" ⭐"}
+.cbar .delta{position:absolute;top:-34px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;border:2.5px solid var(--ink);border-radius:99px;font-size:.72rem;font-weight:700;padding:2px 10px;white-space:nowrap;opacity:0;transition:opacity .4s .5s}
+.cbar.ours .delta{opacity:1}
+.chart-note{font-size:.85rem;color:#66667e;margin-top:18px;text-align:center}
+/* depth race + ablations */
+.dr-row,.abl-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.dr-name{width:130px;font-size:.82rem;font-weight:700;flex-shrink:0}
+.abl-row span{width:170px;font-size:.82rem;flex-shrink:0}
+.dr-track,.abl-track{flex:1;height:34px;border:3px solid var(--ink);border-radius:99px;background:var(--bg);overflow:hidden}
+.dr-bar,.abl-bar{height:100%;width:0;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;font-family:'JetBrains Mono';font-weight:600;font-size:.8rem;color:#fff;border-right:3px solid var(--ink);transition:width 1s cubic-bezier(.2,.8,.3,1);white-space:nowrap}
+.dr-red{background:var(--coral)}.dr-teal{background:var(--teal)}
+.abl-bar{background:var(--c)}
+/* flip cards */
+.flip{perspective:1000px;cursor:pointer;height:300px;outline:none}
+.flip-inner{position:relative;width:100%;height:100%;transition:transform .6s;transform-style:preserve-3d}
+.flip.flipped .flip-inner{transform:rotateY(180deg)}
+.flip-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:3px solid var(--ink);border-radius:20px;box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;gap:14px}
+.flip-front{background:var(--card)}
+.flip-back{background:#E9FBF9;transform:rotateY(180deg);font-size:.85rem;color:#44445c}
+.flip .q{font-family:'Space Grotesk';font-weight:700;font-size:1rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.sim{border:2.5px solid var(--ink);border-radius:99px;padding:4px 12px;font-family:'JetBrains Mono';font-size:.75rem;font-weight:600;background:color-mix(in srgb,var(--teal) calc(var(--v)*100%),#fff)}
+.flip .hint{margin-top:auto;font-size:.75rem;color:#8888a0;font-weight:600;text-align:center}
+.ans{border:2.5px solid var(--ink);border-radius:12px;padding:8px 14px;font-size:.88rem}
+.ans.good{background:#C9F5EF}.ans.bad{background:#FFD9DE}
+/* bib + footer */
+.bib{position:relative;margin-top:30px}
+.bib pre{font-family:'JetBrains Mono';font-size:.85rem;overflow-x:auto;line-height:1.7}
+footer{border-top:3px solid var(--ink);padding:34px 0;text-align:center;background:var(--card)}
+footer a{color:var(--purple);font-weight:600}
+/* confetti */
+.confetti{position:fixed;width:12px;height:12px;border:2px solid var(--ink);z-index:2000;pointer-events:none}
+</style>
+
+<script>
+// ---------- scroll progress ----------
+addEventListener('scroll',()=>{
+  const h=document.documentElement;
+  document.getElementById('progress').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+},{passive:true});
+
+// ---------- reveal on scroll ----------
+const io=new IntersectionObserver(es=>es.forEach(e=>{
+  if(e.isIntersecting){e.target.classList.add('on');
+    e.target.querySelectorAll('.dr-bar,.abl-bar').forEach(b=>{b.style.width=b.dataset.w+'%'});
+    io.unobserve(e.target);}
+}),{threshold:.18});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+// ---------- bottleneck demo ----------
+const simV=[1.0,0.55,0.35,0.24,0.17,0.126], simA=[1.0,0.38,0.245,0.225,0.22,0.216];
+const verdicts=[
+ 'Both models start with everything they need…',
+ 'Pass 2: vanilla has already overwritten half of pass 1. AGCLR wrote the facts to its stream early.',
+ 'Pass 3: vanilla is fading fast. AGCLR stabilizes — the stream holds.',
+ 'Pass 4: vanilla has lost the William Penn binding. AGCLR reads it right back.',
+ 'Pass 5: vanilla is guessing from fragments now.',
+ 'Pass 6 (answer time): vanilla retains 12.6% → hallucinates "Henry David Thoreau" ❌. AGCLR retains 71% more → answers "William Penn" ✅'
+];
+const slider=document.getElementById('passSlider');
+function updateDemo(){
+  const p=+slider.value, i=p-1;
+  document.getElementById('passBadge').textContent=`Pass ${p} / 6`;
+  document.getElementById('simV').textContent=simV[i].toFixed(3);
+  document.getElementById('simA').textContent=simA[i].toFixed(3);
+  document.getElementById('barV').style.width=(simV[i]*100)+'%';
+  const retA=[100,86,79,76,74,72][i]; // conceptual retention incl. concept stream
+  document.getElementById('barA').style.width=retA+'%';
+  // vanilla facts fade out progressively; AGCLR facts stay
+  document.querySelectorAll('#factsV .fact').forEach((f,idx)=>{
+    f.classList.toggle('gone', p>=2+idx);
+  });
+  document.getElementById('verdict').textContent=verdicts[i];
+}
+slider.addEventListener('input',updateDemo);
+updateDemo();
+
+// ---------- architecture gates ----------
+const gateData={
+ gRead:{t:'🔵 Read gate — rₜ = σ(Wr·ĥₜ)',b:'Controls how much of the concept stream c₍ₜ₋₁₎ flows back into the current hidden state — letting pass t access facts computed in ALL earlier passes. Removing it costs −4.6 EM on HotpotQA. Initialized at 0.43 on every dataset.'},
+ gForget:{t:'🔴 Forget gate — fₜ = σ(Wf·ĥₜ)',b:'Prunes irrelevant context from the current hidden state before mixing. Surprisingly the MOST important gate: removing it drops EM by −5.6, because without pruning the stream gets polluted with formatting tokens and stale partial computations.'},
+ gWrite:{t:'🟢 Write gate — wₜ = σ(Ww·ĥₜ)',b:'Commits the gated hidden state to the concept stream, keeping low-confidence states out of memory. Structurally critical (−5.2 EM without it) — but freezing it after pass 2 costs only −0.8, showing the stream is persistent storage: write early, read often.'}
+};
+document.querySelectorAll('.gate').forEach(g=>g.addEventListener('click',()=>{
+  document.querySelectorAll('.gate').forEach(x=>x.classList.remove('active'));
+  g.classList.add('active');
+  document.getElementById('giTitle').textContent=gateData[g.id].t;
+  document.getElementById('giBody').textContent=gateData[g.id].b;
+}));
+
+// ---------- gate playground ----------
+const rG=document.getElementById('rGate'),fG=document.getElementById('fGate'),wG=document.getElementById('wGate');
+const streamRow=document.getElementById('streamRow');
+for(let i=1;i<=6;i++){streamRow.insertAdjacentHTML('beforeend',`<div class="scol"><div class="scell" id="sc${i}"></div><div class="slab">P${i}</div></div>`)}
+function pgUpdate(){
+  const r=+rG.value,f=+fG.value,w=+wG.value;
+  document.getElementById('rVal').textContent=r.toFixed(2);
+  document.getElementById('fVal').textContent=f.toFixed(2);
+  document.getElementById('wVal').textContent=w.toFixed(2);
+  // h' composition: (1-f) from h, r from memory (normalized for display)
+  const hPart=(1-f), cPart=r, tot=hPart+cPart||1;
+  document.getElementById('mixH').style.width=(hPart/tot*100)+'%';
+  document.getElementById('mixC').style.width=(cPart/tot*100)+'%';
+  // stream fill simulation across 6 passes: c += w*h' (bounded)
+  let c=0;
+  for(let i=1;i<=6;i++){
+    c=Math.min(1, c + w*Math.max(0.15,(1-f)) );
+    document.getElementById('sc'+i).style.height=(c*82+6)+'px';
+  }
+  const note=document.getElementById('pgNote');
+  if(r===0&&f===0&&w===0) note.textContent='🚫 All gates closed = vanilla CoCoNuT. Nothing is stored, nothing is retrieved — the concept bottleneck in action.';
+  else if(r===1&&f===1&&w===1) note.textContent='🌊 Everything open: memory floods in and the current thought is fully discarded. Real learned gates are selective — that\'s the point.';
+  else if(w>0.35&&f<0.25) note.textContent='🗺️ ProsQA-style: write a lot, forget little — graph planning needs every entity preserved across long chains.';
+  else if(f>0.25&&w<0.25) note.textContent='🔢 GSM8K-style: forget more, write selectively — intermediate arithmetic can be pruned once used.';
+  else note.textContent='🎛️ The gates trade off keeping the current thought vs. retrieving memory, and how fast the stream accumulates facts.';
+}
+[rG,fG,wG].forEach(s=>s.addEventListener('input',pgUpdate));
+document.querySelectorAll('.pg-presets .chip').forEach(ch=>ch.addEventListener('click',()=>{
+  rG.value=ch.dataset.r; fG.value=ch.dataset.f; wG.value=ch.dataset.w; pgUpdate();
+}));
+pgUpdate();
+
+// ---------- results chart ----------
+const dsData={
+ gsm8k:{unit:'Accuracy (%)',max:45,note:'GSM8K (grade-school math). CoT keeps the crown on single-step arithmetic — but among latent reasoners, AGCLR leads (+2.6 over vanilla).',
+  bars:[['CoT',40.6,'#FFD93D'],['No-CoT',16.5,'#FF9EAA'],['iCoT',30.0,'#B8B3FF'],['Pause Token',16.4,'#FFC29E'],['Vanilla CoCoNuT',31.4,'#FF6B6B'],['AGCLR (ours)',34.0,'#17C3B2','+2.6']]},
+ hotpot:{unit:'Exact Match (%)',max:16,note:'HotpotQA (multi-hop QA) — where the bottleneck bites hardest. AGCLR beats every baseline including CoT. F1: 19.4 vs 15.2 for vanilla (+4.2).',
+  bars:[['CoT',11.0,'#FFD93D'],['No-CoT',4.0,'#FF9EAA'],['iCoT',6.6,'#B8B3FF'],['Pause Token',10.6,'#FFC29E'],['Vanilla CoCoNuT',10.4,'#FF6B6B'],['AGCLR (ours)',14.0,'#17C3B2','+3.6']]},
+ prosqa:{unit:'Accuracy (%)',max:100,note:'ProsQA (graph planning), evaluated at stage 6 — all reasoning latent. iCoT edges higher, but among continuous latent reasoners AGCLR wins where vanilla degrades (+4.0).',
+  bars:[['CoT',55.0,'#FFD93D'],['No-CoT',76.7,'#FF9EAA'],['iCoT',98.2,'#B8B3FF'],['Pause Token',75.9,'#FFC29E'],['Vanilla CoCoNuT',92.0,'#FF6B6B'],['AGCLR (ours)',96.0,'#17C3B2','+4.0']]}
+};
+function renderChart(ds){
+  const d=dsData[ds], chart=document.getElementById('chart');
+  chart.innerHTML='';
+  d.bars.forEach(([name,val,col,delta])=>{
+    const ours=name.includes('ours');
+    chart.insertAdjacentHTML('beforeend',
+     `<div class="cbar${ours?' ours':''}"><span class="val">${val}</span>
+      <div class="bar" style="background:${col};height:4px" data-h="${val/d.max*100}" title="${name}: ${val} ${d.unit}">${delta?`<span class="delta">${delta} vs vanilla</span>`:''}</div>
+      <span class="name">${name}</span></div>`);
+  });
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    chart.querySelectorAll('.bar').forEach(b=>b.style.height=Math.max(2,+b.dataset.h)+'%');
+  }));
+  document.getElementById('chartNote').textContent=d.note+' · Same GPT-2 (117M) base for all methods.';
+  document.querySelectorAll('#dsTabs .tab').forEach(t=>t.classList.toggle('active',t.dataset.ds===ds));
+}
+document.querySelectorAll('#dsTabs .tab').forEach(t=>t.addEventListener('click',()=>renderChart(t.dataset.ds)));
+renderChart('hotpot');
+
+// ---------- line chart draw animation ----------
+['lnV','lnA'].forEach(id=>{
+  const p=document.getElementById(id), len=p.getTotalLength();
+  p.style.strokeDasharray=len; p.style.strokeDashoffset=len;
+});
+new IntersectionObserver((es,obs)=>es.forEach(e=>{if(e.isIntersecting){
+  ['lnV','lnA'].forEach((id,i)=>{const p=document.getElementById(id);
+    p.style.transition=`stroke-dashoffset 1.6s ${i*.3}s ease`; p.style.strokeDashoffset=0;});
+  obs.disconnect();}}),{threshold:.4}).observe(document.getElementById('lineChart'));
+
+// ---------- flip cards ----------
+document.querySelectorAll('.flip').forEach(f=>{
+  f.addEventListener('click',()=>f.classList.toggle('flipped'));
+  f.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f.classList.toggle('flipped')}});
+});
+
+// ---------- bibtex copy + confetti ----------
+document.getElementById('copyBib').addEventListener('click',e=>{
+  navigator.clipboard.writeText(document.getElementById('bibText').textContent).then(()=>{
+    e.target.textContent='✅ Copied!';
+    setTimeout(()=>e.target.textContent='📋 Copy',2000);
+    const colors=['#FF6B6B','#17C3B2','#FFD93D','#6C5CE7','#4D96FF'];
+    for(let i=0;i<24;i++){
+      const c=document.createElement('div');c.className='confetti';
+      c.style.cssText=`left:${e.clientX}px;top:${e.clientY}px;background:${colors[i%5]};border-radius:${i%2?'50%':'3px'}`;
+      document.body.appendChild(c);
+      const a=Math.random()*Math.PI*2, v=90+Math.random()*130;
+      c.animate([{transform:'translate(0,0) rotate(0)',opacity:1},
+        {transform:`translate(${Math.cos(a)*v}px,${Math.sin(a)*v+140}px) rotate(${Math.random()*720}deg)`,opacity:0}],
+        {duration:900+Math.random()*500,easing:'cubic-bezier(.2,.8,.4,1)'}).onfinish=()=>c.remove();
+    }
+  });
+});
+</script>
+</body>
+</html>
